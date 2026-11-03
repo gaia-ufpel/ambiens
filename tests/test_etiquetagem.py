@@ -157,17 +157,23 @@ def test_painel_e_cartao_da_nota(tmp_path):
         pytest.skip("sem display para o Tk")
     try:
         from confortimetro.gui.components.comparison_panel import ComparisonPanel
-        from confortimetro.gui.components.simulation_config_panel import SimulationConfigPanel
+        from confortimetro.gui.components.labeling_panel import LabelingPanel
         from confortimetro.gui.theme import apply_theme
 
         apply_theme(root)
-        panel = SimulationConfigPanel(root)
-        assert panel._labeling_config() is None
+        panel = LabelingPanel(root)
+        assert panel.get_options()["zb"] is None   # automática por padrão
         opcoes = {"tipologia": "escritorio", "uso": "Escritório", "modo": "hibrido", "zb": 3}
-        panel._set_labeling(opcoes)
-        assert panel._labeling_config() == opcoes
-        panel._set_labeling(dict(opcoes, papel="real"))
-        assert panel._labeling_config() is None
+        # A config de uma execução do grupo traz mais chaves; só as da norma voltam.
+        panel.set_options(dict(opcoes, papel="real", grupo="g"))
+        assert panel.get_options() == opcoes
+        varejo = {"tipologia": "varejo", "uso": "Comércio", "modo": "condicionado",
+                  "zb": None, "fachada": "NE"}
+        panel.set_options(varejo)
+        assert panel.get_options() == varejo
+        # Uso de outra tipologia não fica preso no combobox.
+        panel.set_options(dict(varejo, uso="Escritório"))
+        assert panel.get_options()["uso"] == "Comércio"
 
         resultado = {"classe": "B", "modo": "condicionado", "red_cgtt": 20.0,
                      "limites": norma.limites_envoltoria("educacional", 2, 0.43),

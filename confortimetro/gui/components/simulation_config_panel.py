@@ -175,19 +175,6 @@ class KeyboardChipSelect(ChipSelect):
                 fg=COLORS["text_mute"]))
 
 
-LABELING_MODES = {"condicionado": "Condicionado",
-                  "hibrido": "Híbrido (ventilação natural)"}
-ZB_AUTO = "Automática (pelo EPW)"
-
-
-def zb_label(zb: int) -> str:
-    """"2 — Frio (ex.: Pelotas/RS)": o número e o que ele quer dizer."""
-    from confortimetro.etiquetagem.norma import ZONAS
-
-    clima, exemplos = ZONAS[zb]
-    return f"{zb} — {clima} (ex.: {exemplos})"
-
-
 class SimulationConfigCallback(Protocol):
     """Protocol for simulation configuration callbacks."""
     
@@ -219,7 +206,6 @@ class SimulationConfigPanel(ttk.Frame):
         self._build_comfort_tab()
         self._build_equipment_tab()
         self._build_rooms_module_tab()
-        self._build_labeling_tab()
 
     def insert_tab(self, index: int, widget, title: str,
                    select: bool = True, icon_name: Optional[str] = None) -> None:
@@ -422,92 +408,6 @@ class SimulationConfigPanel(ttk.Frame):
         self.rooms_select.grid(row=1, column=0, columnspan=4, padx=SPACE[1],
                                pady=(0, SPACE[2]), sticky="new")
 
-    def _build_labeling_tab(self):
-        """Etiquetagem da envoltória pela INI-C: modelos real e de referência."""
-        from confortimetro.etiquetagem import modelos, norma
-
-        self._tipologias = {dados["nome"]: chave for chave, dados in norma.TIPOLOGIAS.items()}
-        tab = self._scroll_tab("Etiquetagem", "zap")
-        section = self._section(tab, "Etiquetagem INI-C (envoltória)")
-        self.labeling_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(
-            section, text="Executar como etiquetagem (modelos real e de referência)",
-            variable=self.labeling_var, command=self._on_labeling_changed,
-            style="Card.TCheckbutton").grid(row=0, column=0, columnspan=4,
-                                            padx=SPACE[1], pady=(0, SPACE[2]), sticky="w")
-        self.labeling_typology = tk.StringVar(value=norma.TIPOLOGIAS["educacional"]["nome"])
-        self.cbx_typology = self._combo(section, 1, 0, "Tipologia", list(self._tipologias),
-                                        self.labeling_typology, columnspan=2)
-        self.cbx_typology.bind('<<ComboboxSelected>>', self._on_labeling_changed)
-        self.labeling_use = tk.StringVar()
-        self.cbx_use = self._combo(section, 1, 2, "Uso", (), self.labeling_use, columnspan=2,
-                                   help="Dá a densidade de ocupação das APP (Tabela A.1).")
-        self.labeling_mode = tk.StringVar(value=LABELING_MODES["condicionado"])
-        self._combo(section, 3, 0, "Modo", list(LABELING_MODES.values()),
-                    self.labeling_mode, columnspan=2,
-                    help="Híbrido: simula também o modelo real com as janelas "
-                         "abrindo e desconta as horas em conforto (PHOCT).")
-        self.labeling_zb = tk.StringVar(value=ZB_AUTO)
-        self._combo(section, 3, 2, "Zona bioclimática",
-                    [ZB_AUTO] + [zb_label(zb) for zb in range(1, 9)], self.labeling_zb,
-                    columnspan=2, help="Automática: a do município mais próximo do local do EPW.")
-        self.labeling_facade = tk.StringVar(value="N")
-        self.cbx_facade = self._combo(
-            section, 5, 0, "Fachada principal", list(modelos.ORIENTACOES),
-            self.labeling_facade, columnspan=2,
-            help="Só no varejo: as paredes voltadas a até 45° dela recebem o PAF "
-                 "da fachada principal (Tabelas A.5 e A.6).")
-        ttk.Label(section, style="Caption.TLabel", wraplength=520, justify="left",
-                  text="As salas da aba Zonas são as APP avaliadas. Os modelos "
-                       "rodam no módulo somente EnergyPlus, o ano inteiro; a nota "
-                       "aparece no log e na comparação das execuções do grupo. "
-                       + norma.AVISO_ESTIMATIVA).grid(
-            row=7, column=0, columnspan=4, padx=SPACE[1], sticky="w")
-        self._on_labeling_changed()
-
-    def _on_labeling_changed(self, event=None):
-        from confortimetro.etiquetagem import norma
-
-        tipo = norma.TIPOLOGIAS[self._tipologias[self.labeling_typology.get()]]
-        usos = list(tipo["ocupacao"])
-        self.cbx_use.configure(values=usos)
-        if self.labeling_use.get() not in usos:
-            self.labeling_use.set(usos[-1])
-        self.cbx_facade.configure(
-            state="readonly" if isinstance(tipo["paf"], tuple) else "disabled")
-        self._on_config_changed()
-
-    def _labeling_config(self):
-        if not self.labeling_var.get():
-            return None
-        modo = next(chave for chave, rotulo in LABELING_MODES.items()
-                    if rotulo == self.labeling_mode.get())
-        from confortimetro.etiquetagem import norma
-
-        zb = self.labeling_zb.get()
-        tipologia = self._tipologias[self.labeling_typology.get()]
-        opcoes = {"tipologia": tipologia, "uso": self.labeling_use.get(), "modo": modo,
-                  "zb": None if zb == ZB_AUTO else int(zb.split()[0])}
-        if isinstance(norma.TIPOLOGIAS[tipologia]["paf"], tuple):
-            opcoes["fachada"] = self.labeling_facade.get()
-        return opcoes
-
-    def _set_labeling(self, opcoes):
-        from confortimetro.etiquetagem import norma
-
-        # A config de uma execução do grupo também tem `etiquetagem`; só a
-        # da tela (sem `papel`) liga a opção.
-        ativo = bool(opcoes) and "papel" not in opcoes
-        self.labeling_var.set(ativo)
-        if not ativo:
-            return
-        self.labeling_typology.set(norma.TIPOLOGIAS[opcoes["tipologia"]]["nome"])
-        self.labeling_mode.set(LABELING_MODES[opcoes["modo"]])
-        self.labeling_zb.set(zb_label(int(opcoes["zb"])) if opcoes.get("zb") else ZB_AUTO)
-        self.labeling_use.set(opcoes["uso"])
-        self.labeling_facade.set(opcoes.get("fachada") or "N")
-        self._on_labeling_changed()
-
     def set_room_options(self, rooms):
         """Zonas oferecidas no seletor de salas (lidas do IDF escolhido)."""
         self.rooms_select.set_options(rooms)
@@ -569,7 +469,6 @@ class SimulationConfigPanel(ttk.Frame):
             'clo_priority': bool(self.clo_priority_var.get()),
             'rooms': self.rooms_select.get_values(),
             'module_type': LABEL2MODULE.get(self.selected_module.get()),
-            'etiquetagem': self._labeling_config(),
         }
 
         entries = {'max_vel': self.vel_max_entry, 'met': self.met_entry,
@@ -648,8 +547,6 @@ class SimulationConfigPanel(ttk.Frame):
             self.selected_module.set(MODULE_LABELS.get(module_type, ''))
         self.module_help.configure(
             text=MODULE_DESCRIPTIONS.get(module_type if module_type else None, ""))
-
-        self._set_labeling(config.get('etiquetagem'))
 
         for _read, apply in self._extras:
             if apply:

@@ -8,6 +8,7 @@ from .path_config_panel import (
     PathConfigPanel,
 )
 from .simulation_config_panel import SimulationConfigPanel
+from .labeling_panel import LabelingPanel
 from .idf_editor_panel import IDFEditorPanel
 from .results_panel import ResultsPanel
 from .control_panel import ControlPanel
@@ -22,7 +23,8 @@ __all__ = [
     'MACHINE_FIELDS',
     'SIMULATION_FIELDS',
     'PathConfigPanel',
-    'SimulationConfigPanel', 
+    'SimulationConfigPanel',
+    'LabelingPanel',
     'IDFEditorPanel',
     'ResultsPanel',
     'ControlPanel',

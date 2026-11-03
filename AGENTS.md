@@ -57,6 +57,7 @@ saídas e diagnóstico de erros.
 - **Etiquetagem INI-C é um grupo de execuções** (`etiquetagem/execucao.py`):
   cada modelo gerado roda como execução comum `ENERGYPLUS_ONLY` com
   `config.etiquetagem` (`papel`, `grupo`), e a nota fica em `ETIQUETAGEM.json`.
+  Na GUI ela tem página própria (`labeling`), separada da execução comum.
   O remoto e o MCP não aceitam o campo. Detalhes em
   [`docs/CLI.md`](docs/CLI.md#etiquetagem-da-envoltória-ini-c).
 - **O assistente consulta a norma pelo texto empacotado**
@@ -98,6 +99,17 @@ duas páginas; misturar `pack` e `place` no mesmo host empurra a que entra).
 - `editor` — topbar de execução (`ControlPanel`), card rolável com caminhos +
   parâmetros (`PathConfigPanel` e `SimulationConfigPanel`) e um `BottomSheet`
   com o log (`ResultsPanel`), que abre sozinho quando a simulação começa.
+  Não monta etiquetagem: `start_simulation` só cria o grupo INI-C com
+  `origin="labeling"`.
+- `labeling` — página própria da etiquetagem INI-C (botão **Etiquetagem** da
+  listagem; **Duplicar** de uma execução do grupo também cai aqui):
+  `LabelingPanel` (IDF/EPW, APP, tipologia, uso, modo, ZB, fachada), com
+  `ControlPanel(file_actions=False)` e log próprios. A config sai de
+  `_labeling_config` (cópia da do editor + campos da página), sem tocar
+  `self.configs`. **`control_panel`, `results_panel` e `log_sheet` são
+  propriedades**: apontam para a barra da página que executa
+  (`self._run_page`), trocada pelo `show_page` só com nada rodando; uma
+  simulação por vez (`_busy`).
 - `idf` — `IDFEditorPanel` (`components/idf_editor_panel.py`), aberta pelo
   **Editar IDF** do `ControlPanel`: período,
   passos por hora e ocupação lidos do IDF escolhido. **Salvar como novo IDF**

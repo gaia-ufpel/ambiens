@@ -57,7 +57,7 @@ faixa de FF. Classes (Tabela 8.11): A acima de 3i, B acima de 2i, C acima de
 i, D de 0 a i, E com carga do real maior que a da referência. Tipologia
 mista: a dominante (maior área). Blocos: um FF e uma classe por bloco.
 
-## O que o Ambiens implementa (aba Etiquetagem / `cli.py --inic`)
+## O que o Ambiens implementa (página Etiquetagem / `cli.py --inic`)
 
 - Só a envoltória pelo método de simulação (Anexo C.I). Não calcula a
   classificação geral (CEP), nem condicionamento, iluminação, água quente,
@@ -71,7 +71,7 @@ mista: a dominante (maior área). Blocos: um FF e uma classe por bloco.
   densidade do uso escolhido, sistema ideal 21/24 °C nas horas ocupadas
   (aquecimento só nas ZB 1–2 ou se o IDF aquece, C.I.3), ar externo
   5 L/s·pessoa + 0,6 L/s·m², frestas da Tabela C.3. As APP são as zonas
-  escolhidas na aba Zonas; as demais são APT.
+  escolhidas na página Etiquetagem (ou `rooms` na CLI); as demais são APT.
 - PAF de referência: janelas escaladas no lugar; se não cabem, viram faixa de
   painéis na parede e o aviso diz o PAF obtido. No varejo e no mercado, PAF
   da fachada principal (paredes a até 45° da orientação escolhida) e das

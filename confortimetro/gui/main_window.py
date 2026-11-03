@@ -33,6 +33,7 @@ from .components import (
     IDFEditorPanel,
     ResultsPanel,
     ControlPanel,
+    LabelingPanel,
     SimulationsPanel,
     ComparisonPanel,
     TimeSeriesPanel,
@@ -78,6 +79,11 @@ class MainWindow(tk.Tk):
         # A listagem só é relida quando alguma execução termina.
         self._runs_dirty = False
         self._detail_run: Optional[dict] = None
+        # Barra, log e status de cada página que executa ("editor" ou
+        # "labeling"); `control_panel`, `results_panel` e `log_sheet` são os da
+        # página que disparou a última simulação.
+        self._feedback = {}
+        self._run_page = "editor"
         # A thread do Drive marca aqui que algum status mudou.
         self._drive_change = threading.Event()
         # `after` da transição de página em andamento, se houver.
@@ -95,6 +101,30 @@ class MainWindow(tk.Tk):
         # Apresentação depois de instalar ou reinstalar (marca do instalador).
         if onboarding.pending():
             self.after(500, self.open_onboarding)
+
+    @property
+    def control_panel(self) -> ControlPanel:
+        return self._feedback[self._run_page][0]
+
+    @property
+    def log_sheet(self) -> BottomSheet:
+        return self._feedback[self._run_page][1]
+
+    @property
+    def results_panel(self) -> ResultsPanel:
+        return self._feedback[self._run_page][2]
+
+    def _build_run_feedback(self, page, key: str, callback, file_actions: bool = True):
+        """Topbar de execução e log num bottom sheet, registrados em `key`."""
+        topbar = Card(page, pad=SPACE[3])
+        topbar.pack(fill="x", pady=(0, SPACE[4]))
+        control = ControlPanel(topbar.body, callback=callback, file_actions=file_actions)
+        control.pack(fill="x")
+        sheet = BottomSheet(page, "Log de execução")
+        sheet.pack(side="bottom", fill="x", pady=(SPACE[4], 0))
+        results = ResultsPanel(sheet.body, callback=self)
+        results.pack(fill="both", expand=True)
+        self._feedback[key] = (control, sheet, results)
 
     def open_onboarding(self):
         return onboarding.open_onboarding(self)
@@ -166,6 +196,7 @@ class MainWindow(tk.Tk):
             "compare": self._build_compare_page(),
             "detail": self._build_detail_page(),
             "editor": self._build_editor_page(),
+            "labeling": self._build_labeling_page(),
             "settings": self._build_settings_page(),
             "assistant": self._build_assistant_page(),
         }
@@ -179,6 +210,7 @@ class MainWindow(tk.Tk):
         "compare": "Comparação entre execuções",
         "detail": "Detalhes da execução",
         "editor": "Nova execução com EnergyPlus",
+        "labeling": "Classe da envoltória pelo método de simulação da INI-C",
         "settings": "Configurações desta máquina",
         "assistant": "Converse sobre os resultados das execuções",
     }
@@ -190,6 +222,10 @@ class MainWindow(tk.Tk):
 
         self._current_page = name
         self.subtitle_label.configure(text=self._PAGE_SUBTITLES[name])
+        # Parada, a barra e o log ativos passam a ser os da página que executa
+        # e foi aberta; rodando, ficam os da simulação em andamento.
+        if name in self._feedback and not self.control_panel.get_is_running():
+            self._run_page = name
 
         # A listagem só relê a pasta quando alguma execução terminou: o sync
         # do banco custa segundos e não vale a cada ida e volta.
@@ -229,8 +265,11 @@ class MainWindow(tk.Tk):
         nav = self._page_nav(page, "Execuções")
         self.btn_nav_new_run = RoundedButton(
             nav, text="Nova execução", variant="primary", icon="new",
-            command=lambda: self.show_page("editor"))
+            command=lambda: self.show_page(
+                self._run_page if self._simulation_running() else "editor"))
         self.btn_nav_new_run.pack(side="right")
+        RoundedButton(nav, text="Etiquetagem", variant="bar", icon="zap",
+                      command=self.on_new_labeling).pack(side="right", padx=(0, SPACE[2]))
         RoundedButton(nav, text="Atualizar", variant="bar", icon="refresh",
                       command=lambda: self.simulations_panel.refresh()).pack(
                           side="right", padx=(0, SPACE[2]))
@@ -406,17 +445,8 @@ class MainWindow(tk.Tk):
         page = ttk.Frame(self.page_host, style="Main.TFrame")
         self._page_nav(page, "Execução", back_to="runs")
 
-        # --- Topbar: executar, salvar/carregar e estado da simulação ---
-        topbar = Card(page, pad=SPACE[3])
-        topbar.pack(fill="x", pady=(0, SPACE[4]))
-        self.control_panel = ControlPanel(topbar.body, callback=self)
-        self.control_panel.pack(fill="x")
-
-        # --- Log: painel inferior colapsável (ancorado no rodapé) ---
-        self.log_sheet = BottomSheet(page, "Log de execução")
-        self.log_sheet.pack(side="bottom", fill="x", pady=(SPACE[4], 0))
-        self.results_panel = ResultsPanel(self.log_sheet.body, callback=self)
-        self.results_panel.pack(fill="both", expand=True)
+        # Topbar (executar, salvar/carregar, estado) e o log no rodapé.
+        self._build_run_feedback(page, "editor", self)
 
         # --- Parâmetros: as abas já são o card, sem moldura em volta ---
         self.simulation_panel = SimulationConfigPanel(page, callback=self)
@@ -430,6 +460,23 @@ class MainWindow(tk.Tk):
         self.simulation_panel.insert_tab(0, self.path_panel, "Arquivos",
                                           icon_name="files")
         self._build_idf_editor_tabs()
+        return page
+
+    def _build_labeling_page(self):
+        """Etiquetagem INI-C: arquivos, APP e opções da norma, sem o resto."""
+        from types import SimpleNamespace
+
+        from tkinter import ttk
+
+        page = ttk.Frame(self.page_host, style="Main.TFrame")
+        self._page_nav(page, "Etiquetagem INI-C (envoltória)", back_to="runs")
+        actions = SimpleNamespace(on_run_simulation=self.on_run_labeling,
+                                  on_stop_simulation=self.on_stop_simulation)
+        self._build_run_feedback(page, "labeling", actions, file_actions=False)
+        card = Card(page, pad=0)
+        card.pack(side="top", fill="both", expand=True)
+        self.labeling_panel = LabelingPanel(card.body)
+        self.labeling_panel.pack(fill="both", expand=True)
         return page
 
     def _build_idf_editor_tabs(self):
@@ -745,26 +792,27 @@ class MainWindow(tk.Tk):
         return unwired_equipment(target, self.configs.rooms or [],
                                  self.configs.module_type)
 
-    def _validate_configuration(self) -> bool:
-        """Validate the current configuration."""
-        if not self.configs:
+    def _validate_configuration(self, config: SimulationConfig = None) -> bool:
+        """Valida `config` (padrão: a do editor) antes de rodar."""
+        config = config or self.configs
+        if not config:
             toast(self, "Configuração não carregada.", "error")
             return False
         
         # Check required paths
-        if not os.path.exists(self.configs.idf_path):
+        if not os.path.exists(config.idf_path or ""):
             toast(self, "Arquivo IDF não encontrado.", "error")
             return False
         
-        if not os.path.exists(self.configs.epw_path):
+        if not os.path.exists(config.epw_path or ""):
             toast(self, "Arquivo EPW não encontrado.", "error")
             return False
         
-        if not os.path.exists(self.configs.energy_path):
+        if not os.path.exists(config.energy_path or ""):
             toast(self, "Pasta do EnergyPlus não existe.", "error")
             return False
 
-        if self.configs.etiquetagem:
+        if config.etiquetagem:
             # A etiquetagem cria a ocupação da norma e troca o condicionamento:
             # o equipamento do módulo não importa.
             return True
@@ -1065,11 +1113,20 @@ class MainWindow(tk.Tk):
         self.control_panel.set_status("Pronto para executar", "info")
         self._simulation_error = None
 
+    def _busy(self) -> bool:
+        """Uma simulação por vez: com outra rodando, avisa onde ela está."""
+        if not self.control_panel.get_is_running():
+            return False
+        if self._current_page != self._run_page:
+            toast(self, "Já há uma simulação em andamento; acompanhe em "
+                        "\"Ver em andamento\".", "warn")
+        return True
+
     def on_run_simulation(self):
         """Handle run simulation request."""
-        if self.control_panel.get_is_running():
+        if self._busy():
             return
-        
+        self._run_page = "editor"
         self._reset_run_feedback()
 
         # Save current configuration
@@ -1085,10 +1142,49 @@ class MainWindow(tk.Tk):
 
         self.start_simulation(self.configs)
 
+    def on_new_labeling(self):
+        """Página da etiquetagem; sem IDF escolhido, parte do IDF, do EPW e das
+        zonas do editor."""
+        panel = self.labeling_panel
+        if not panel.get_files()[0]:
+            panel.set_files(self.path_panel.get_idf_path().strip(),
+                            self.path_panel.get_epw_path().strip())
+            panel.set_rooms(self.simulation_panel.rooms_select.get_values())
+        if not self._feedback["labeling"][0].get_is_running():
+            self._feedback["labeling"][0].set_name(None)
+        self.show_page("labeling")
+
+    def _labeling_config(self) -> SimulationConfig:
+        """A config da etiquetagem: caminhos da máquina e os campos da página.
+        O resto (conforto, módulo) não entra nos modelos da norma."""
+        config = copy.deepcopy(self.configs) if self.configs else SimulationConfig()
+        config.runs_root_path = self.settings_panel.get_output_path()
+        config.energy_path = self.settings_panel.get_energy_path()
+        config.idf_path, config.epw_path = self.labeling_panel.get_files()
+        config.source_idf_path = None
+        config.rooms = self.labeling_panel.get_rooms()
+        config.nome = self.control_panel.get_name()
+        config.etiquetagem = self.labeling_panel.get_options()
+        return config
+
+    def on_run_labeling(self):
+        if self._busy():
+            return
+        self._run_page = "labeling"
+        self._reset_run_feedback()
+        config = self._labeling_config()
+        if not config.rooms:
+            self._reject_configuration(["Escolha as zonas de permanência prolongada (APP)."])
+            return
+        if self._validate_configuration(config):
+            self.start_simulation(config, origin="labeling")
+
     def _on_run_shortcut(self, _event=None):
         """F5 / Ctrl+Enter executam na página de execução (nunca param)."""
         if self._current_page == "editor":
             self.on_run_simulation()
+        elif self._current_page == "labeling":
+            self.on_run_labeling()
 
     def _simulation_running(self) -> bool:
         return bool(self.simulation_thread and self.simulation_thread.is_alive())
@@ -1122,11 +1218,12 @@ class MainWindow(tk.Tk):
         recusada por `simulacao.validate` não roda: devolve `None` e o motivo
         vai para o log e um toast.
         """
-        if origin != "editor":   # o Executar do editor já limpou antes de validar
+        if origin not in ("editor", "labeling"):   # esses já limparam ao validar
+            self._run_page = "editor"
             self._reset_run_feedback()
-        # A proposta do assistente é uma execução comum, mesmo com a opção
-        # ligada na tela.
-        labeling = config.etiquetagem if origin == "editor" else None
+        # Só a página da etiquetagem monta o grupo INI-C; o editor e o
+        # assistente rodam sempre uma execução comum.
+        labeling = config.etiquetagem if origin == "labeling" else None
         if not labeling:
             config.etiquetagem = None
         checked = config
@@ -1287,7 +1384,7 @@ class MainWindow(tk.Tk):
         if (run.get('status') == 'em simulação'
                 or run['path'] in self.simulations_panel._running
                 or run['path'] == getattr(self, '_running_run_path', None)):
-            self.show_page("editor")
+            self.show_page(self._run_page)
             self.log_sheet.set_open(True)
             return
 
@@ -1448,6 +1545,20 @@ class MainWindow(tk.Tk):
                 os.path.join(run['path'], "configs.json"))
         except Exception as error:
             toast(self, f"Não foi possível ler a configuração: {error}", "error")
+            return
+
+        opcoes = config.etiquetagem or {}
+        if "papel" in opcoes:
+            # Execução de um grupo INI-C: repete a etiquetagem na página dela.
+            self.labeling_panel.set_files(opcoes.get("idf_original"), config.epw_path)
+            self.labeling_panel.set_rooms(opcoes.get("zonas") or config.rooms)
+            self.labeling_panel.set_options(opcoes)
+            if not self._busy():
+                self._run_page = "labeling"
+                self._reset_run_feedback()
+                nome = (config.nome or "").split(" · INI-C")[0]
+                self.control_panel.set_name(f"{nome} (cópia)" if nome else None)
+            self.show_page("labeling")
             return
 
         # `idf_path` da execução aponta para a cópia dentro dela; o modelo

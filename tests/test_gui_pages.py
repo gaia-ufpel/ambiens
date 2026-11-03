@@ -769,3 +769,61 @@ def test_nome_automatico_usa_hora_de_inicio():
     run = {'run': '20261007_2133_2', 'idf': 'FAURB.idf', 'module_type': 'COMPLETE',
            'config': {}, 'modificado': datetime.datetime(2026, 10, 9, 8, 0)}
     assert _display(run)['name'] == "FAURB · 07/10 21:33 (2)"
+
+
+def test_etiquetagem_tem_pagina_propria(window, tmp_path):
+    # A tela de execução comum não oferece mais a etiquetagem.
+    notebook = window.simulation_panel.notebook
+    tabs = [notebook.tab(tab, "text").strip() for tab in notebook.tabs()]
+    assert "Etiquetagem" not in tabs
+
+    # Sem IDF escolhido, a página parte do IDF e das zonas do editor.
+    window.on_new_labeling()
+    _settle(window)
+    assert window._current_page == "labeling"
+    idf, _epw = window.labeling_panel.get_files()
+    assert idf == window.path_panel.get_idf_path().strip()
+    assert window.labeling_panel.get_rooms() == ["SALA1"]
+    # Barra e log ativos são os da página da etiquetagem.
+    assert window.control_panel is window._feedback["labeling"][0]
+    assert not window.control_panel.save_button.winfo_ismapped()
+
+    started = []
+    window._validate_configuration = lambda config=None: True
+    window.start_simulation = lambda config, origin="editor": started.append((config, origin))
+    window.on_run_labeling()
+    config, origin = started[0]
+    assert origin == "labeling"
+    assert config.rooms == ["SALA1"] and config.idf_path == idf
+    assert config.etiquetagem["tipologia"] == "educacional"
+    # A config do editor não é tocada.
+    assert window.configs.etiquetagem is None
+
+    window.show_page("editor")
+    assert window.control_panel is window._feedback["editor"][0]
+
+
+def test_duplicar_execucao_do_grupo_abre_a_etiquetagem(window, tmp_path):
+    idf = tmp_path / "modelo.idf"
+    idf.write_text("Zone,\n  SALA1,\nZone,\n  SALA2,\n")
+    run_path = tmp_path / "grupo"
+    run_path.mkdir()
+    config = SimulationConfig(met_as_watts=125.496, _idf_path=str(run_path / "modelo_inic.idf"),
+                              _met=1.2, epw_path=str(tmp_path / "clima.epw"),
+                              output_path=str(run_path), rooms=["SALA2"],
+                              nome="Base · INI-C real")
+    config.etiquetagem = {"grupo": "grupo", "papel": "real", "zonas": ["SALA2"],
+                          "idf_original": str(idf), "tipologia": "escritorio",
+                          "uso": "Escritório", "modo": "hibrido", "zb": 3}
+    config.to_json(str(run_path / "configs.json"))
+
+    window.on_duplicate_run({'run': 'grupo', 'path': str(run_path), 'status': 'sem planilhas',
+                             'rooms_disponiveis': [], 'modificado': datetime.datetime.now(),
+                             'config': {}})
+
+    assert window._current_page == "labeling"
+    assert window.labeling_panel.get_files()[0] == str(idf)
+    assert window.labeling_panel.get_rooms() == ["SALA2"]
+    assert window.labeling_panel.get_options() == {
+        "tipologia": "escritorio", "uso": "Escritório", "modo": "hibrido", "zb": 3}
+    assert window.control_panel.get_name() == "Base (cópia)"
