@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "skills": {
+    "dockerized-traefik-stack": {
+      "source": "glbessa/zeroumlabs",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/dockerized-traefik-stack/SKILL.md",
+      "computedHash": "37a1f967378047f2ec57c61152e15de97978dd6ec94b2afe0bd73e4fb7ea9e04"
+    },
+    "telegram-log-sidecar": {
+      "source": "glbessa/skills",
+      "sourceType": "github",
+      "skillPath": "telegram-log-sidecar/SKILL.md",
+      "computedHash": "cfc3acdd2d366c219e8868f87c1643532d4ce935a65cf8b01be09c015fba09ce"
+    }
+  }
+}
