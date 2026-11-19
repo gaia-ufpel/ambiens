@@ -15,6 +15,12 @@ from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
 from confortimetro import mcp_runner, mcp_server
+from confortimetro.config import default_energy_path, energy_api_library, is_energy_path
+
+# Instalação real da plataforma; o caminho fixo de Linux também existe no
+# Windows em dual boot (na partição do Linux), mas lá não serve.
+REAL_ENERGY = default_energy_path()
+HAS_ENERGY = is_energy_path(REAL_ENERGY)
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -64,7 +70,7 @@ def test_stdio_listar_resumo_validar_e_recusar_traversal(tmp_path):
                     "configuracao": {"idf_path": str(outside / "nao-existe.idf")}}))
                 assert invalid["valida"] is False
                 repo = os.path.dirname(os.path.dirname(__file__))
-                if os.path.isfile("/usr/local/EnergyPlus-9-4-0/Energy+.idd"):
+                if HAS_ENERGY:
                     valid = _payload(await session.call_tool("validar_configuracao", {
                         "configuracao": {
                             "idf_path": os.path.join(repo, "examples", "idf", "SALA", "SALA_PTHP.idf"),
@@ -91,6 +97,7 @@ def test_disparo_fake_runner_persiste_estado(tmp_path, monkeypatch):
     (energy / "pyenergyplus").mkdir(parents=True)
     (energy / "Energy+.idd").touch()
     (energy / "pyenergyplus" / "api.py").touch()
+    (energy / energy_api_library()).touch()
     monkeypatch.setattr(mcp_server, "validar_configuracao", lambda args: {"valida": True, "erros": []})
     called = []
     monkeypatch.setattr(mcp_server, "find_energy_path", lambda: str(energy))
@@ -116,13 +123,13 @@ def test_disparo_fake_runner_persiste_estado(tmp_path, monkeypatch):
             "rooms": ["../fora"]}, started["pasta"])
 
 
-@pytest.mark.skipif(not os.path.isfile("/usr/local/EnergyPlus-9-4-0/Energy+.idd"),
+@pytest.mark.skipif(not HAS_ENERGY,
                     reason="EnergyPlus 9.4 indisponível")
 def test_disparo_valida_idf_real_antes_de_abrir_runner(tmp_path, monkeypatch):
     monkeypatch.setenv("CONFORTIMETRO_DATA_DIR", str(tmp_path))
     monkeypatch.delenv("AMBIENS_DATA_DIR", raising=False)
     mcp_server._energy_installation.cache_clear()
-    monkeypatch.setattr(mcp_server, "find_energy_path", lambda: "/usr/local/EnergyPlus-9-4-0")
+    monkeypatch.setattr(mcp_server, "find_energy_path", lambda: REAL_ENERGY)
     calls = []
     monkeypatch.setattr(mcp_server.subprocess, "Popen", lambda *a, **k: calls.append((a, k))
                         or types.SimpleNamespace(pid=os.getpid()))
@@ -147,6 +154,7 @@ def _inputs(tmp_path, monkeypatch):
     (energy / "pyenergyplus").mkdir(parents=True)
     (energy / "Energy+.idd").touch()
     (energy / "pyenergyplus" / "api.py").touch()
+    (energy / energy_api_library()).touch()
     monkeypatch.setattr(mcp_server, "find_energy_path", lambda: str(energy))
     return {"idf_path": str(idf), "epw_path": str(epw), "rooms": ["SALA"]}, energy
 
@@ -183,6 +191,7 @@ def test_energyplus_nao_troca_idd_com_servidor_ativo(tmp_path, monkeypatch):
     (second / "pyenergyplus").mkdir(parents=True)
     (second / "Energy+.idd").touch()
     (second / "pyenergyplus" / "api.py").touch()
+    (second / energy_api_library()).touch()
     monkeypatch.setattr(mcp_server, "find_energy_path", lambda: str(second))
     assert mcp_server._config(args, str(tmp_path / "saida")).energy_path == str(first)
 

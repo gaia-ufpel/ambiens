@@ -70,18 +70,30 @@ def default_energy_path() -> str:
     return "/usr/local/EnergyPlus-9-4-0"
 
 
+def energy_api_library() -> str:
+    """Nome da biblioteca nativa da API do EnergyPlus na plataforma atual."""
+    if platform.system() == "Windows":
+        return "energyplusapi.dll"
+    if platform.system() == "Darwin":
+        return "libenergyplusapi.dylib"
+    return "libenergyplusapi.so"
+
+
 def is_energy_path(path: str) -> bool:
     """
     Verdadeiro se `path` é a raiz de uma instalação utilizável do EnergyPlus.
 
-    Exige os dois arquivos que a simulação usa: o IDD e a API Python. Isso
-    rejeita uma subpasta da instalação, que existe mas quebra depois com
-    `IDD file not found`.
+    Exige o que a simulação carrega: o IDD, a API Python e a biblioteca nativa
+    da plataforma. Isso rejeita uma subpasta da instalação, que existe mas
+    quebra depois com `IDD file not found`, e a instalação de outro sistema:
+    no Windows em dual boot, `/usr/local/EnergyPlus-9-4-0` do config versionado
+    vira `E:\\usr\\local\\...` na partição do Linux, que só tem o `.so`.
     """
     if not path or not os.path.isdir(path):
         return False
-    return os.path.isfile(os.path.join(path, "Energy+.idd")) and os.path.isfile(
-        os.path.join(path, "pyenergyplus", "api.py")
+    return all(
+        os.path.isfile(os.path.join(path, *parts))
+        for parts in (("Energy+.idd",), ("pyenergyplus", "api.py"), (energy_api_library(),))
     )
 
 

@@ -471,6 +471,8 @@ def modelo_valido(tmp_path, zone="SALA1"):
     (energy / "pyenergyplus").mkdir(parents=True)
     (energy / "Energy+.idd").write_text("")
     (energy / "pyenergyplus" / "api.py").write_text("")
+    from confortimetro.config import energy_api_library
+    (energy / energy_api_library()).write_text("")
     return str(idf), str(epw), str(energy)
 
 

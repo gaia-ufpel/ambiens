@@ -3,7 +3,7 @@
 import pytest
 
 import cli
-from confortimetro.config import SimulationConfig
+from confortimetro.config import SimulationConfig, energy_api_library
 from confortimetro.gui.theme import parse_num
 from tests import test_gui_pages
 
@@ -20,6 +20,7 @@ def _config(tmp_path, **over):
     energy = tmp_path / "EnergyPlus-9-4-0"
     (energy / "pyenergyplus").mkdir(parents=True, exist_ok=True)
     (energy / "Energy+.idd").write_text("")
+    (energy / energy_api_library()).write_text("")
     (energy / "pyenergyplus" / "api.py").write_text("")
     config = SimulationConfig(met_as_watts=125.496, _idf_path=str(idf), _met=1.2,
                               epw_path=str(epw), energy_path=str(energy), rooms=["SALA1"],

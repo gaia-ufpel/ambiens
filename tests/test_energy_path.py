@@ -6,6 +6,7 @@ import pytest
 
 from confortimetro.config import (
     REQUIRED_EP_API_VERSION,
+    energy_api_library,
     energy_api_version,
     energy_path_version,
     find_energy_path,
@@ -19,6 +20,7 @@ def make_install(root, name):
     (path / "pyenergyplus").mkdir(parents=True)
     (path / "Energy+.idd").write_text("")
     (path / "pyenergyplus" / "api.py").write_text("")
+    (path / energy_api_library()).write_text("")
     return path
 
 
@@ -32,6 +34,18 @@ def test_is_energy_path_exige_idd_e_api(tmp_path):
     (completa / "Energy+.idd").unlink()
     assert not is_energy_path(str(completa))
     assert not is_energy_path("")
+
+
+def test_is_energy_path_recusa_instalacao_de_outro_sistema(tmp_path, monkeypatch):
+    """Dual boot: no Windows, a instalação Linux da outra partição só tem o `.so`."""
+    linux = make_install(tmp_path, "EnergyPlus-9-4-0")
+    for nome in ("energyplusapi.dll", "libenergyplusapi.dylib"):
+        (linux / nome).unlink(missing_ok=True)
+    (linux / "libenergyplusapi.so").write_text("")
+    monkeypatch.setattr("confortimetro.config.platform.system", lambda: "Windows")
+    assert not is_energy_path(str(linux))
+    (linux / "energyplusapi.dll").write_text("")
+    assert is_energy_path(str(linux))
 
 
 @pytest.mark.parametrize("nome,esperado", [

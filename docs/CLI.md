@@ -374,7 +374,9 @@ olha; as paredes a até 45° dela formam a fachada principal.
 ## Detecção do EnergyPlus
 
 Quando o `energy_path` do config está vazio ou não aponta para uma instalação
-válida (a pasta precisa conter **`Energy+.idd`** e **`pyenergyplus/api.py`**),
+válida (a pasta precisa conter **`Energy+.idd`**, **`pyenergyplus/api.py`** e
+a biblioteca da API **da plataforma atual** — `energyplusapi.dll` no Windows,
+`libenergyplusapi.so` no Linux, `libenergyplusapi.dylib` no macOS),
 `find_energy_path()` procura sozinho, nesta ordem, e prefere sempre a versão
 9.4:
 
@@ -384,6 +386,11 @@ válida (a pasta precisa conter **`Energy+.idd`** e **`pyenergyplus/api.py`**),
    `%ProgramFiles%\EnergyPlusV*` no Windows, `/usr/local/EnergyPlus-*` e
    `/opt/EnergyPlus-*` no Linux, `/Applications/EnergyPlus-*` no macOS;
 4. no Windows, as instalações registradas no desinstalador (registro).
+
+A exigência da biblioteca vem do dual boot: no Windows, o
+`/usr/local/EnergyPlus-9-4-0` do `examples/config.json` vira
+`E:\usr\local\EnergyPlus-9-4-0` quando o drive atual é a partição do Linux, e
+essa instalação tem IDD e `api.py`, mas só o `.so`.
 
 Instalação em lugar não convencional: exporte `ENERGYPLUS_DIR` ou passe
 `--set energy_path=...`. Na interface gráfica há o botão **🔍 Detectar** ao lado
