@@ -22,7 +22,10 @@ No Windows o usuário final usa o instalador
 `Ambiens-<versão>-setup.exe` (gerado por
 `.github/workflows/windows-build.yml` com PyInstaller + Inno Setup, a partir de
 `packaging/`); a partir do código, `bin\install.bat` e `bin\executar.bat`
-(ver [`docs/WINDOWS.md`](docs/WINDOWS.md)). Nada de caminho com
+(ver [`docs/WINDOWS.md`](docs/WINDOWS.md)). **No Windows o venv é o
+`.venv-win`**, criado com `uv venv .venv-win --python 3.10`: a árvore pode ser
+a mesma do Linux (dual boot) e o `.venv` é o de lá — nunca crie venv do Windows
+dentro dele. Python 3.12+ não serve (`numpy==1.24.3` sem wheel). Nada de caminho com
 `/` fixo nem `.venv/bin` no código — use `os.path.join` e
 `platform.system()`.
 

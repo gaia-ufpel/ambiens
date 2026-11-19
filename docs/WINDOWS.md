@@ -75,7 +75,8 @@ crie a tag `v` correspondente.
 
 | Programa | Onde | Observação |
 |---|---|---|
-| **Python 3.10 ou superior** | <https://www.python.org/downloads/windows/> | Na primeira tela do instalador, marque **"Add python.exe to PATH"**. |
+| **uv** (recomendado) | `winget install astral-sh.uv` | Baixa o Python 3.10 sozinho; dispensa instalar o Python. |
+| ou **Python 3.10 ou 3.11** | <https://www.python.org/downloads/windows/> | Só sem o uv. Marque **"Add python.exe to PATH"**. O 3.12 ou mais novo **não serve**: o `numpy==1.24.3` não tem wheel para ele. |
 | **EnergyPlus 9.4.0** | <https://github.com/NREL/EnergyPlus/releases/tag/v9.4.0> (instalador `Windows-x86_64.exe`) | Aceite o diretório padrão `C:\EnergyPlusV9-4-0`. |
 
 A versão do EnergyPlus **tem que ser a 9.4**: o programa usa o `pyenergyplus`
@@ -88,8 +89,18 @@ por exemplo `C:\confortimetro`.
 
 ### 3. Instalar as dependências
 
-Duplo-clique em **`bin\install.bat`**. Ele cria o ambiente virtual `.venv` dentro da
-pasta do projeto e instala as bibliotecas Python. Leva alguns minutos na
+Duplo-clique em **`bin\install.bat`**. Ele cria o ambiente virtual `.venv-win` dentro da
+pasta do projeto (com o uv, se estiver no PATH; senão, com o `py`) e instala as
+bibliotecas Python. Para desenvolver, instale também as ferramentas de verificação:
+
+```powershell
+uv venv .venv-win --python 3.10          # o install.bat já faz isto
+uv pip install --python .venv-win\Scripts\python.exe -r requirements-dev.txt -c constraints.txt
+.venv-win\Scripts\python -m pytest tests -q
+```
+
+O nome é `.venv-win`, e não `.venv`, porque a pasta pode ser a mesma do Linux
+(ver abaixo). Leva alguns minutos na
 primeira vez. A janela mostra `[OK] Instalacao concluida` ao terminar.
 
 ### 4. Executar
@@ -112,11 +123,35 @@ O código já trata o que muda entre os sistemas:
 - `energy_path` cai no padrão da plataforma (`C:\EnergyPlusV9-4-0`) quando o
   caminho gravado no `resources\config.json` não existe na máquina.
 
+## Mesma pasta no Linux e no Windows (dual boot)
+
+Quem desenvolve nos dois sistemas sobre a mesma árvore (a partição ext4 do Linux
+montada no Windows, por exemplo `E:\home\<usuário>\Projetosmbiens`):
+
+- **Um venv por sistema.** O `.venv` é do Linux (`.venv/bin`), o `.venv-win` é do
+  Windows (`.venv-win\Scripts`). Criar um venv do Windows dentro do `.venv`
+  sobrescreve o `pyvenv.cfg` e quebra o do Linux. O `executar.bat` e o
+  `scripts/quality.mjs` procuram o `.venv-win` primeiro.
+- **Git recusa o repositório** (`detected dubious ownership`): os arquivos são
+  do usuário do Linux. Uma vez por máquina:
+  `git config --global --add safe.directory E:/home/<usuário>/Projetos/ambiens`.
+- **Fim de linha.** O `.gitattributes` fixa LF para texto (CRLF só nos `.bat`)
+  e guarda IDF, EPW e CSV byte a byte; por garantia,
+  `git config core.autocrlf false` no repositório — o Git for Windows vem com
+  `true`.
+- **As execuções ficam separadas**: `%LOCALAPPDATA%\Ambiens` no Windows e
+  `~/.local/share/Ambiens` no Linux. Para ver as mesmas nos dois, aponte
+  `AMBIENS_DATA_DIR` no Windows para a pasta do Linux
+  (`setx AMBIENS_DATA_DIR "E:\home\<usuário>\.local\share\Ambiens\execucoes"`).
+- **O hook de `pre-push`** (Husky) precisa do Node no Windows; sem ele, dê push
+  pelo Linux.
+
 ## Problemas comuns
 
 | Sintoma | Causa provável |
 |---|---|
-| `[ERRO] Python nao encontrado` no `bin\install.bat` | Python instalado sem marcar "Add python.exe to PATH". Reinstale marcando a opção. |
+| `[ERRO] Nem uv nem Python encontrados` no `bin\install.bat` | Instale o uv (`winget install astral-sh.uv`) e abra um terminal novo, ou instale o Python 3.10/3.11 marcando "Add python.exe to PATH". |
+| `py` diz `No Installed Pythons Found` com Python no PATH | O Python registrado está num disco desmontado ou removido. Use o uv. |
 | `No module named 'pyenergyplus'` | Caminho do EnergyPlus errado na interface, ou EnergyPlus não instalado. Clique em **🔍 Detectar**. |
 | `IDD file not found` | O **Caminho do EnergyPlus** precisa apontar para a raiz da instalação (a pasta que contém `Energy+.idd`), não para uma subpasta. O status do campo avisa antes de simular. |
 | A janela fecha na hora | Rode pelo `bin\executar.bat` (ele mantém a janela aberta e mostra o erro), não por `python main.py` no Explorer. |

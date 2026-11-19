@@ -1,1 +1,10 @@
+# A árvore é compartilhada entre Linux e Windows (dual boot): texto em LF,
+# independentemente do core.autocrlf da máquina. Só o cmd.exe exige CRLF.
+* text=auto eol=lf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+# Dados de entrada do EnergyPlus e tabelas: guardados byte a byte, sem conversão.
+*.idf -text
+*.epw -text
+*.csv -text
 screenshots/**/*.png filter=lfs diff=lfs merge=lfs -text

@@ -2,10 +2,17 @@ import { existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { platform } from "node:os";
 
-const python = platform() === "win32" ? ".venv\\Scripts\\python.exe" : ".venv/bin/python";
+// No Windows o venv é o .venv-win: a pasta pode ser a mesma do Linux (dual boot),
+// e o .venv de lá não roda aqui. O .venv\Scripts fica como fallback.
+const candidates =
+  platform() === "win32"
+    ? [".venv-win\\Scripts\\python.exe", ".venv\\Scripts\\python.exe"]
+    : [".venv/bin/python"];
+const python = candidates.find((path) => existsSync(path));
 
-if (!existsSync(python)) {
-  console.error(`Ambiente virtual não encontrado em ${python}. Execute: python -m venv .venv`);
+if (!python) {
+  const hint = platform() === "win32" ? "bin\\install.bat (ou: uv venv .venv-win --python 3.10)" : "./bin/install.sh";
+  console.error(`Ambiente virtual não encontrado em ${candidates.join(" nem ")}. Execute: ${hint}`);
   process.exit(1);
 }
 

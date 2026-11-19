@@ -1,5 +1,6 @@
 # ambientes
 .venv/
+.venv-win/
 node_modules/
 
 # saídas e arquivos gerados
