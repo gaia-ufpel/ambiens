@@ -144,7 +144,14 @@ montada no Windows, por exemplo `E:\home\<usuário>\Projetosmbiens`):
   `AMBIENS_DATA_DIR` no Windows para a pasta do Linux
   (`setx AMBIENS_DATA_DIR "E:\home\<usuário>\.local\share\Ambiens\execucoes"`).
 - **O hook de `pre-push`** (Husky) precisa do Node no Windows; sem ele, dê push
-  pelo Linux.
+  pelo Linux. Com o nvm-windows (`winget install CoreyButler.NVMforWindows`,
+  depois `nvm install lts` e `nvm use <versão>`), instale numa pasta fora do
+  perfil (`--location C:\nvm4w\nvm`): o instalador pede administrador e, se a
+  elevação for de outra conta, vai para o perfil dela, inacessível ao seu usuário.
+- **`npm ci` termina com `EPERM ... .husky\_\.gitignore`**: o driver ext4 marca
+  arquivos com ponto como ocultos, e o Node não sobrescreve arquivo oculto no
+  Windows. Os pacotes já foram instalados e os hooks em `.husky/_` são os mesmos
+  gerados no Linux; é só o `prepare` que falha. Use `npm ci --ignore-scripts`.
 
 ## Problemas comuns
 
