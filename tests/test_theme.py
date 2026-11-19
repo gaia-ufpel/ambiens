@@ -36,12 +36,16 @@ def test_botao_ativa_por_teclado_e_mostra_foco():
         button.focus_force()
         root.update()
         assert button._focused
-        for key in ("<Return>", "<KP_Enter>", "<space>"):
+        # O Tk do Windows entrega o Enter do teclado numérico como <Return>.
+        keys = ["<Return>", "<space>"]
+        if root.tk.call("tk", "windowingsystem") == "x11":
+            keys.append("<KP_Enter>")
+        for key in keys:
             button.event_generate(key)
-        assert len(calls) == 3
+        assert len(calls) == len(keys)
         button.configure(state="disabled")
         button.event_generate("<space>")
-        assert len(calls) == 3
+        assert len(calls) == len(keys)
         button.event_generate("<FocusOut>")
         assert not button._focused
     finally:

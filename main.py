@@ -55,7 +55,7 @@ def resolve_config_path() -> str:
     if not os.path.exists(user_config):
         os.makedirs(os.path.dirname(user_config), exist_ok=True)
         bundle_path = getattr(sys, "_MEIPASS")
-        with open(os.path.join(bundle_path, "examples", "config.json")) as reader:
+        with open(os.path.join(bundle_path, "examples", "config.json"), encoding="utf-8") as reader:
             data = json.load(reader)
 
         # Os caminhos do config versionado são relativos ao repositório e de
@@ -70,7 +70,7 @@ def resolve_config_path() -> str:
         data["expanded_idf_path"] = ""
         data["energy_path"] = ""
 
-        with open(user_config, "w") as writer:
+        with open(user_config, "w", encoding="utf-8") as writer:
             json.dump(data, writer, indent=4)
     return user_config
 

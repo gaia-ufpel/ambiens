@@ -169,12 +169,19 @@ def _detail(response) -> str:
 
 
 def localize(config: dict, dest: str) -> dict:
-    """Troca os caminhos da pasta do servidor pelos da cópia local."""
-    server_run = (config.get("output_path") or "").rstrip("/")
+    """Troca os caminhos da pasta do servidor pelos da cópia local.
+
+    O servidor de produção é Linux (`/`), mas um servidor no Windows grava `\\`:
+    a comparação normaliza os dois separadores.
+    """
+    def norm(path):
+        return path.replace("\\", "/")
+
+    server_run = norm(config.get("output_path") or "").rstrip("/")
     for key, value in config.items():
         if server_run and isinstance(value, str) and (
-                value == server_run or value.startswith(server_run + "/")):
-            rest = value[len(server_run):].strip("/")
+                norm(value) == server_run or norm(value).startswith(server_run + "/")):
+            rest = norm(value)[len(server_run):].strip("/")
             config[key] = os.path.join(dest, *rest.split("/")) if rest else dest
     config["runs_root_path"] = os.path.dirname(dest)
     config["energy_path"] = ""  # from_json redetecta a instalação desta máquina

@@ -115,7 +115,7 @@ class Simulation:
             self.logger.error(error_msg)
             q.put(error_msg)
             if not self.stop_requested and os.path.isdir(self.configs.output_path or ""):
-                with open(os.path.join(self.configs.output_path, FAILED_MARKER), "w") as marker:
+                with open(os.path.join(self.configs.output_path, FAILED_MARKER), "w", encoding="utf-8") as marker:
                     marker.write(str(e))
             raise
         finally:

@@ -331,12 +331,12 @@ class SimulationConfig:
         if json_path is None:
             json_path = os.path.join(self.output_path, "config.json")
 
-        with open(json_path, "w") as writer:
+        with open(json_path, "w", encoding="utf-8") as writer:
             json.dump(self.__dict__, writer, indent=4)
     
     @staticmethod
     def from_json(json_path: str):
-        with open(json_path, "r") as reader:
+        with open(json_path, "r", encoding="utf-8") as reader:
             data = json.load(reader)
         
         config = SimulationConfig(**data)

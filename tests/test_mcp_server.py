@@ -247,7 +247,10 @@ def test_runner_morto_vira_interrompida(tmp_path):
         while mcp_server._status(run).get("estado") != "executando":
             assert time.time() < deadline, "runner não chegou a executando"
             time.sleep(0.1)
-        assert mcp_server._status(run)["pid"] == process.pid
+        # No Windows o python.exe do venv é um lançador: o runner roda num
+        # processo filho, com outro PID.
+        if os.name != "nt":
+            assert mcp_server._status(run)["pid"] == process.pid
     finally:
         process.kill()
         process.wait()

@@ -569,7 +569,7 @@ def test_default_margem_da_janela_documentado():
     from pathlib import Path
     from confortimetro.config import SimulationConfig
 
-    cli = (Path(__file__).resolve().parents[1] / "docs" / "CLI.md").read_text()
+    cli = (Path(__file__).resolve().parents[1] / "docs" / "CLI.md").read_text(encoding="utf-8")
     assert f"| `temp_open_window_bound` | {SimulationConfig.temp_open_window_bound} |" in cli
 
 

@@ -54,6 +54,7 @@ def test_energy_path_version_prefere_o_executavel(tmp_path, monkeypatch):
     assert energy_path_version(str(instalacao)) == "9.4"
 
 
+@pytest.mark.skipif(os.name == "nt", reason="o executável falso é um script sh")
 def test_cli_version_le_a_saida_do_executavel(tmp_path):
     instalacao = make_install(tmp_path, "eplus")
     executavel = instalacao / "energyplus"
@@ -113,6 +114,8 @@ def test_find_sem_instalacao_retorna_vazio(tmp_path, monkeypatch):
         "confortimetro.config._platform_globs", lambda: [str(tmp_path / "nada-*")]
     )
     monkeypatch.setattr("confortimetro.config.shutil.which", lambda _: None)
+    # No Windows o registro acharia a instalação real da máquina.
+    monkeypatch.setattr("confortimetro.config._windows_registry_paths", lambda: [])
     monkeypatch.delenv("ENERGYPLUS_DIR", raising=False)
 
     assert find_energy_path() == ""
